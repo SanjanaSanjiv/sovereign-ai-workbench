@@ -2,14 +2,19 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 import httpx
 
+from backend.models.manager import ModelManager
+
+
 app = FastAPI(
     title="Sovereign AI Workbench",
     description="Local AI backend for confidential industrial work",
-    version="0.1.0",
+    version="0.2.0",
 )
 
 OLLAMA_URL = "http://localhost:11434/api/chat"
 MODEL_NAME = "qwen3:4b"
+
+model_manager = ModelManager()
 
 
 class ChatRequest(BaseModel):
@@ -31,6 +36,16 @@ async def health():
         "status": "healthy",
         "ollama_url": OLLAMA_URL,
         "model": MODEL_NAME,
+    }
+
+
+@app.get("/models")
+async def get_models():
+    models = await model_manager.list_models()
+
+    return {
+        "count": len(models),
+        "models": models,
     }
 
 
