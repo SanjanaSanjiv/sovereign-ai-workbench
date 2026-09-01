@@ -48,6 +48,14 @@ async def get_models():
         "models": models,
     }
 
+@app.get("/registry")
+async def get_registry():
+    registry = await model_manager.build_registry()
+
+    return {
+        "count": len(registry),
+        "models": registry,
+    }
 
 @app.post("/chat")
 async def chat(request: ChatRequest):
