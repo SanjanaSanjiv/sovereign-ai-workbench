@@ -3,6 +3,7 @@ from pydantic import BaseModel
 import httpx
 
 from backend.models.manager import ModelManager
+from backend.router.router import ModelRouter
 
 
 app = FastAPI(
@@ -15,7 +16,7 @@ OLLAMA_URL = "http://localhost:11434/api/chat"
 MODEL_NAME = "qwen3:4b"
 
 model_manager = ModelManager()
-
+model_router = ModelRouter()
 
 class ChatRequest(BaseModel):
     message: str
@@ -57,11 +58,41 @@ async def get_registry():
         "models": registry,
     }
 
+@app.post("/route")
+async def route_request(request: ChatRequest):
+    registry = await model_manager.build_registry()
+
+    routing_result = await model_router.route(
+        request.message,
+        registry,
+    )
+
+    return routing_result
+
 @app.post("/chat")
 async def chat(request: ChatRequest):
 
+    # 1. Build the current model registry
+    registry = await model_manager.build_registry()
+
+    # 2. Let the router classify the task and select a model
+    routing_result = await model_router.route(
+        request.message,
+        registry,
+    )
+
+    # 3. Make sure a suitable model was found
+    if not routing_result["available"]:
+        return {
+            "error": "No suitable model available",
+            "task": routing_result["task"],
+        }
+
+    selected_model = routing_result["model"]
+
+    # 4. Send the request to the selected model
     payload = {
-        "model": MODEL_NAME,
+        "model": selected_model,
         "messages": [
             {
                 "role": "user",
@@ -81,7 +112,10 @@ async def chat(request: ChatRequest):
 
     result = response.json()
 
+    # 5. Return both routing information and the AI response
     return {
+        "task": routing_result["task"],
         "model": result.get("model"),
+        "capabilities": routing_result["capabilities"],
         "response": result["message"]["content"],
     }
