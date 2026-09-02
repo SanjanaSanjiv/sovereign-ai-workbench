@@ -5,11 +5,30 @@ OLLAMA_BASE_URL = "http://localhost:11434"
 
 
 class ModelManager:
+
+    MODEL_ROLE_MAP = {
+        "qwen3:4b": [
+            "general",
+            "reasoning",
+            "tool_use",
+        ],
+        "qwen2.5-coder:7b": [
+            "general",
+            "coding",
+            "tool_use",
+        ],
+        "gemma3:4b": [
+            "general",
+            "vision",
+        ],
+    }
+
     def __init__(self, base_url: str = OLLAMA_BASE_URL):
         self.base_url = base_url.rstrip("/")
 
     async def list_models(self):
         """Return all models installed in Ollama."""
+
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.get(
                 f"{self.base_url}/api/tags"
@@ -23,6 +42,7 @@ class ModelManager:
 
     async def get_model_details(self, model_name: str):
         """Return detailed information about one Ollama model."""
+
         payload = {
             "model": model_name,
             "verbose": False,
@@ -47,6 +67,7 @@ class ModelManager:
         capabilities = set()
 
         for capability in ollama_capabilities:
+
             if capability == "completion":
                 capabilities.add("general")
 
@@ -72,10 +93,12 @@ class ModelManager:
         registry = []
 
         for model in models:
+
             name = model.get("name")
 
             try:
                 details = await self.get_model_details(name)
+
             except Exception as exc:
                 details = {
                     "capabilities": [],
@@ -85,28 +108,54 @@ class ModelManager:
             model_details = model.get("details", {})
 
             ollama_capabilities = details.get(
-                "capabilities", []
+                "capabilities",
+                [],
             )
 
+            # First discover capabilities reported by Ollama
             workbench_capabilities = self.map_capabilities(
                 ollama_capabilities
+            )
+
+            # Then add our application's model roles
+            model_roles = self.MODEL_ROLE_MAP.get(
+                name,
+                [],
+            )
+
+            workbench_capabilities = sorted(
+                set(
+                    workbench_capabilities
+                    + model_roles
+                )
             )
 
             registry.append(
                 {
                     "name": name,
                     "size": model.get("size"),
-                    "modified_at": model.get("modified_at"),
-                    "family": model_details.get("family"),
+                    "modified_at": model.get(
+                        "modified_at"
+                    ),
+                    "family": model_details.get(
+                        "family"
+                    ),
                     "parameter_size": model_details.get(
                         "parameter_size"
                     ),
                     "quantization": model_details.get(
                         "quantization_level"
                     ),
-                    "ollama_capabilities": ollama_capabilities,
-                    "workbench_capabilities": workbench_capabilities,
+                    "ollama_capabilities": (
+                        ollama_capabilities
+                    ),
+                    "workbench_capabilities": (
+                        workbench_capabilities
+                    ),
                 }
             )
 
         return registry
+
+
+    

@@ -3,7 +3,7 @@ class ModelRouter:
     TASK_CAPABILITIES = {
         "general": ["general"],
         "reasoning": ["reasoning"],
-        "coding": ["tool_use", "reasoning"],
+        "coding": ["coding"],
         "document": ["general", "reasoning"],
         "vision": ["vision"],
     }
